@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title style="color:#0799ce">Virtual Labs</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsPlumb/2.15.6/js/jsplumb.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            height: 1000px;
+            padding: 50px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            zoom: 1.40;
+        }
+
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-bottom: 3px solid orange;
+            padding: 10px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-left img {
+            height: 50px;
+            margin-right: 10px;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 10px;
+        }
+
+        .navbar-right span {
+            color: gold;
+            font-size: 20px;
+        }
+
+        .navbar-right button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 12px;
+        }
+
+        .container {
+            display: flex;
+            height: 110vh;
+            padding-top: 70px;
+        }
+
+        .sidebar {
+            margin-top: 30px;
+            width: 170px;
+            background-color: #f5f5f5;
+            padding: 20px;
+            box-shadow: 4px 0 10px rgba(41, 3, 167, 0.1);
+            position: fixed;
+            top: 60px;
+            left: 0;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #0066ff;
+            font-weight: bold;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .content {
+            position: fixed;
+            margin-left: 180px;
+            top: 90px;
+            padding: 30px;
+            overflow-y: auto;
+            height: 400px;
+            transition: margin-right 0.3s ease;
+        }
+
+        .content.panel-open {
+            margin-right: 300px;
+        }
+
+        .image-container {
+            max-width: 800px;
+            width: 100%;
+            position: relative;
+            background-color: rgba(173, 216, 230, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .connection-point {
+            width: 8px;
+            height: 8px;
+            background-color: #4CAF50;
+            border: 1px solid #45a049;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        .connection-point:hover {
+            background-color: #45a049;
+            transform: scale(1.2);
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+
+        .connection-point.active {
+            background-color: #ff5722;
+            border-color: #f4511e;
+            box-shadow: 0 0 5px rgba(255, 87, 34, 0.5);
+        }
+
+        .connection-point.selected {
+            background-color: #2196F3;
+            border-color: #1976D2;
+            box-shadow: 0 0 5px rgba(33, 150, 243, 0.5);
+        }
+
+        .connection-label {
+            position: absolute;
+            color: white;
+            font-size: 8px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .jtk-connector {
+            stroke: #2196F3;
+            stroke-width: 1.5;
+            z-index: 1;
+        }
+
+        .jtk-endpoint {
+            width: 6px;
+            height: 6px;
+            background-color: #2196F3;
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .jtk-dragging {
+            z-index: 3;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            width: 100px;
+        }
+
+        .control-group input[type="range"] {
+            flex: 1;
+        }
+
+        .oscilloscope {
+            background: #000;
+            border-radius: 8px;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .phase-button {
+            background: linear-gradient(135deg, #1c73de 0%, #00f2fe 100%);
+            color: black;
+            border: none;
+            border-radius: 10px;
+            padding: 8px 15px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100px;
+            height: 48px;
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .phase-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .cs-button {
+            position: relative;
+            width: 300px;
+            height: 100px;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1c73de 0%, #00f2fe 100%);
+            box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .cs-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 123, 255, 0.4);
+        }
+
+        .measurements {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px 0;
+        }
+
+        #valTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        #valTable th,
+        #valTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #valTable th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+
+        #graphContainer {
+            display: none;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        /* Update instruction panel styles */
+        .instruction-panel {
+            position: fixed;
+            right: -300px;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background-color: #fff;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            transition: right 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+            cursor: ns-resize;
+            user-select: none;
+        }
+
+        .instruction-panel.open {
+            right: 0;
+        }
+
+        .instruction-toggle {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1001;
+            background: linear-gradient(135deg, #1c73de 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 15px 10px;
+            border-radius: 5px;
+            cursor: ns-resize;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+            user-select: none;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .instruction-toggle:hover {
+            transform: translateY(-50%) translateX(-5px);
+        }
+
+        .instruction-content {
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        .instruction-content h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .instruction-content ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .instruction-content li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            border-left: 4px solid #1c73de;
+        }
+
+        .instruction-content .point {
+            font-weight: bold;
+            color: #1c73de;
+        }
+
+        .instruction-content .connection {
+            color: #666;
+        }
+
+        /* Modal Styles */
+        .modal1 {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 2000;
+            width: 100%;
+            height: 1000px;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2000;
+            width: 100%;
+            height: 1000px;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        .modal-logo img {
+            width: 150px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .stars {
+            font-size: 30px;
+            margin: 15px 0;
+        }
+
+        .star {
+            color: gray;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .star.selected {
+            color: orange;
+        }
+
+        .modal-button {
+            padding: 10px 24px;
+            border: none;
+            font-size: 16px;
+            border-radius: 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .cancel-btn {
+            background-color: #888;
+            color: white;
+        }
+
+        textarea,
+        input[type="email"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #screenshotPreview {
+            margin-top: 10px;
+            max-width: 100%;
+            display: none;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navbar">
+        <div class="navbar-left">
+            <img src="logo.jpg" alt="Virtual Labs Logo" />
+            <h2>Virtual Labs</h2>
+        </div>
+        <div class="navbar-right">
+            <button onclick="openModal()">Rate Me</button>
+            <button onclick="openBugModal()">Report a Bug</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <a href="aim.html">Aim</a>
+            <a href="theory.html">Theory</a>
+            <a href="pretest.html">Pretest</a>
+            <a href="procedure.html">Procedure</a>
+            <a href="simulation.html"><u>Simulation</u></a>
+            <a href="posttest.html">Posttest</a>
+            <a href="reference.html">References</a>
+            <a href="contributor.html">Contributor</a>
+            <a href="feedback.html">Feedback</a>
+        </div>
+        <div class="content">
+            <button class="instruction-toggle" onclick="toggleInstructionPanel()">Instructions</button>
+            <div class="instruction-panel" id="instructionPanel">
+                <div class="instruction-content">
+                    <br><br><br>
+                    <h2>Circuit Connection Instructions</h2>
+
+                    <ul>
+                        <li>Connect <span class="point">Point 1</span> to <span class="point">Point 21</span></li>
+                        <li>Connect <span class="point">Point 2</span> to <span class="point">Point 7</span> or <span
+                                class="point">Point 3</span></li>
+                        <li>Connect <span class="point">Point 3</span> to <span class="point">Point 7</span> or <span
+                                class="point">Point 2</span></li>
+                        <li>Connect <span class="point">Point 4</span> to <span class="point">Point 11</span>, <span
+                                class="point">Point 5</span>, <span class="point">Point 16</span>, or <span
+                                class="point">Point
+                                13</span></li>
+                        <li>Connect <span class="point">Point 5</span> to <span class="point">Point 11</span>, <span
+                                class="point">Point 4</span>, <span class="point">Point 16</span>, or <span
+                                class="point">Point
+                                13</span></li>
+                        <li>Connect <span class="point">Point 6</span> to <span class="point">Point 18</span>, <span
+                                class="point">Point 17</span>, <span class="point">Point 19</span>, <span
+                                class="point">Point
+                                20</span>, or <span class="point">Point 21</span></li>
+                        <li>Connect <span class="point">Point 7</span> to <span class="point">Point 3</span> or <span
+                                class="point">Point 2</span></li>
+                        <li>Connect <span class="point">Point 8</span> to <span class="point">Point 12</span>, <span
+                                class="point">Point 14</span>, <span class="point">Point 10</span>, or <span
+                                class="point">Point
+                                23</span></li>
+                        <li>Connect <span class="point">Point 9</span> to <span class="point">Point 22</span></li>
+                        <li>Connect <span class="point">Point 10</span> to <span class="point">Point 23</span></li>
+                        <br><br><br><br><br><br><br><br><br><br><br><br>
+                    </ul>
+                    <br><br><br>
+                </div>
+            </div>
+            <div class="header">
+                <center>
+                    <h1>Phase Shift Oscillator Simulation</h1>
+                </center>
+            </div>
+            <div>
+                <center>
+                    <h2>This circuit only for practice purpose.</h2>
+                    <h3>Follow the instructions to complete the circuit.</h3>
+                </center>
+            </div>
+            <div class="image-container" id="container">
+              
+                <img src="1.jpg" alt="Lab Image">
+                <!-- Connection points -->
+                <div class="connection-point" style="top: 48.9%; left: 3.8%;" data-point="1"></div>
+                <div class="connection-point" style="top: 48.3%; left: 19%;" data-point="2"></div>
+                <div class="connection-point" style="top: 11%; left: 16%;" data-point="3"></div>
+                <div class="connection-point" style="top: 10.5%; left: 31%;" data-point="4"></div>
+                <div class="connection-point" style="top: 27%; left: 63.5%;" data-point="5"></div>
+                <div class="connection-point" style="top: 27%; left: 70.6%;" data-point="6"></div>
+                <div class="connection-point" style="top: 44.5%; left: 30%;" data-point="7"></div>
+                <div class="connection-point" style="top: 53.6%; left: 30%;" data-point="8"></div>
+                <div class="connection-point" style="top: 29%; left: 45%;" data-point="9"></div>
+                <div class="connection-point" style="top: 71%; left: 45%;" data-point="10"></div>
+                <div class="connection-point" style="top: 49.5%; left: 57%;" data-point="11"></div>
+                <div class="connection-point" style="top: 89.9%; left: 38%;" data-point="12"></div>
+                <div class="connection-point" style="top: 89.7%; left: 53.5%;" data-point="13"></div>
+                <div class="connection-point" style="top: 91.5%; left: 68%;" data-point="14"></div>
+                <div class="connection-point" style="top: 91%; left: 83.5%;" data-point="15"></div>
+                <div class="connection-point" style="top: 76%; left: 70.7%;" data-point="16"></div>
+                <div class="connection-point" style="top: 73.4%; left: 73%;" data-point="17"></div>
+                <div class="connection-point" style="top: 76.4%; left: 81.5%;" data-point="18"></div>
+                <div class="connection-point" style="top: 73.4%; left: 84%;" data-point="19"></div>
+                <div class="connection-point" style="top: 75%; left: 93.6%;" data-point="20"></div>
+                <div class="connection-point" style="top: 72.3%; left: 96.1%;" data-point="21"></div>
+                <div class="connection-point" style="top: 29.4%; left: 49.5%;" data-point="22"></div>
+                <div class="connection-point" style="top: 70%; left: 53%;" data-point="23"></div>
+            </div>
+            <div class="image-container" id="container">
+                <center>
+                    <h4>
+                        <p>Click on any point to connect</p>Refernce Circuit
+                    </h4>
+                </center>
+                <img src="2.jpg" alt="Lab Image">
+            </div>
+
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="rval">R (kΩ):</label>
+                    <input type="range" id="rval" min="1" max="100" value="10" step="1">
+                    <span id="rdisplay">10 kΩ</span>
+                </div>
+                <div class="control-group">
+                    <label for="cval">C (μF):</label>
+                    <input type="range" id="cval" min="0.01" max="1" value="0.1" step="0.01">
+                    <span id="cdisplay">0.1 μF</span>
+                </div>
+                <div class="control-group">
+                    <label for="waveSpeed">Wave Speed:</label>
+                    <input type="range" id="waveSpeed" min="0.1" max="2" value="1" step="0.1">
+                    <span id="speedDisplay">1x</span>
+                </div>
+                <div class="control-group" style="justify-content: center; margin-top: 5px;">
+                    <button id="a1btn" class="phase-button">a1 (60°)</button>
+                    <button id="a2btn" class="phase-button">a2 (120°)</button>
+                    <button id="a3btn" class="phase-button">a3 (180°)</button>
+                </div>
+                <div class="control-group">
+                    <button id="pow-start" class="cs-button">Start Simulation</button>
+                    <button id="reset" class="cs-button">Reset</button>
+                </div>
+            </div>
+
+            <div class="oscilloscope">
+                <canvas id="oscilloscope" width="800" height="300"></canvas>
+            </div>
+
+            <div class="measurements">
+                <button class="phase-button" onclick="addReading()" style="margin-bottom: 10px;">Add Reading</button>
+                <table id="valTable">
+                    <thead>
+                        <tr>
+                            <th>R (kΩ)</th>
+                            <th>C (μF)</th>
+                            <th>Frequency (Hz)</th>
+                            <th>Amplitude (V)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div id="graphContainer">
+                    <h3>Analysis Graphs</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                        <div style="width: 600px; height: 400px;">
+                            <canvas id="frequencyGraph"></canvas>
+                        </div>
+                        <div style="width: 600px; height: 400px;">
+                            <canvas id="capacitorGraph"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rate Me Modal -->
+    <div class="modal1" id="rateModal">
+        <div class="modal-content">
+            <div class="modal-logo">
+                <img src="logo.jpg" alt="V-Lab Logo">
+            </div>
+            <h2>Rate</h2>
+            <div class="stars" id="starContainer">
+                <span class="star" data-value="1">&#9733;</span>
+                <span class="star" data-value="2">&#9733;</span>
+                <span class="star" data-value="3">&#9733;</span>
+                <span class="star" data-value="4">&#9733;</span>
+                <span class="star" data-value="5">&#9733;</span>
+            </div>
+            <button class="modal-button submit-btn" onclick="submitRating()">Submit</button>
+            <button class="modal-button cancel-btn" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Bug Report Modal -->
+    <div class="modal" id="bugModal">
+        <div class="modal-content">
+            <h2>Bug Report</h2>
+            <form id="bugForm">
+                <p><strong>Please select the Issues</strong></p>
+                <label><input type="checkbox" name="issue" value="Simulation Not Working"> Simulation Not
+                    Working</label><br>
+                <label><input type="checkbox" name="issue" value="Incorrect Results/Observations"> Incorrect
+                    Results/Observations</label><br>
+                <label><input type="checkbox" name="issue" value="Insufficient/Incorrect Instructions">
+                    Insufficient/Incorrect Instructions</label><br>
+                <label><input type="checkbox" name="issue" value="Page Not Loading"> Page Not Loading</label><br>
+                <label><input type="checkbox" name="issue" value="Content Not Visible"> Content Not Visible</label><br>
+                <label><input type="checkbox" name="issue" value="Incorrect Content"> Incorrect Content</label><br><br>
+
+                <label><strong>Please describe your issue</strong></label>
+                <textarea id="description" rows="3" placeholder="Enter description here"></textarea>
+
+                <label><strong>Your Email (Optional)</strong></label>
+                <input type="email" id="email" placeholder="Enter email here for communication">
+
+                <label><input type="checkbox" id="screenshotCheckbox"> Include Screenshot</label>
+                <div id="screenshotPreviewContainer">
+                    <img id="screenshotPreview" alt="Screenshot Preview">
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="modal-button cancel-btn" onclick="closeBugModal()">Close</button>
+                    <button type="button" class="modal-button submit-btn" onclick="submitBug()">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- html2canvas library -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <script>
+        // Update instruction panel functionality
+        function toggleInstructionPanel() {
+            const panel = document.getElementById('instructionPanel');
+            const content = document.querySelector('.content');
+            panel.classList.toggle('open');
+            content.classList.toggle('panel-open');
+        }
+
+        // Update click outside handler
+        document.addEventListener('click', function (event) {
+            const panel = document.getElementById('instructionPanel');
+            const toggle = document.querySelector('.instruction-toggle');
+            if (!panel.contains(event.target) && !toggle.contains(event.target) && panel.classList.contains('open')) {
+                panel.classList.remove('open');
+                document.querySelector('.content').classList.remove('panel-open');
+            }
+        });
+
+        // Initialize jsPlumb
+        const instance = jsPlumb.getInstance({
+            container: "container",
+            paintStyle: { stroke: "#2196F3", strokeWidth: 1.5 },
+            endpointStyle: { fill: "#2196F3" },
+            connector: ["Straight"],
+            anchors: ["Center", "Center"]
+        });
+
+        // Define allowed connections
+        const allowedConnections = {
+            '1': ['21'],
+            '2': ['7', '3'],
+            '3': ['7', '2'],
+            '4': ['11', '5', '16', '13'],
+            '5': ['11', '4', '16', '13'],
+            '6': ['18', '17', '19', '20', '21'],
+            '7': ['3', '2'],
+            '8': ['12', '14', '10', '23'],
+            '9': ['22'],
+            '10': ['23'],
+            '11': ['4', '5', '16'],
+            '12': ['8'],
+            '13': ['16'],
+            '14': ['12', '8'],
+            '15': ['18', '17'],
+            '16': ['11', '5', '4', '13'],
+            '17': ['15', '18'],
+            '18': ['17', '15'],
+            '19': ['20'],
+            '20': ['19'],
+            '21': ['1']
+        };
+
+        // Function to check if connection is allowed
+        function isConnectionAllowed(sourcePoint, targetPoint) {
+            const source = sourcePoint.getAttribute('data-point');
+            const target = targetPoint.getAttribute('data-point');
+            const sourceConnections = allowedConnections[source] || [];
+            const targetConnections = allowedConnections[target] || [];
+            return sourceConnections.includes(target) || targetConnections.includes(source);
+        }
+
+        // Simulation variables
+        let isRunning = false;
+        let animationId = null;
+        let time = 0;
+        let waveSpeed = 1;
+        let currentPhase = 0;
+        let currentAmplitude = 100;
+        let showPointA = true;
+        let comparePoint = null;
+        let frequencyChart = null;
+        let capacitorChart = null;
+
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const rval = document.getElementById('rval');
+        const cval = document.getElementById('cval');
+        const waveSpeedControl = document.getElementById('waveSpeed');
+        const powStart = document.getElementById('pow-start');
+        const reset = document.getElementById('reset');
+        const a1btn = document.getElementById('a1btn');
+        const a2btn = document.getElementById('a2btn');
+        const a3btn = document.getElementById('a3btn');
+
+        // Update displays
+        function updateDisplays() {
+            document.getElementById('rdisplay').textContent = `${rval.value} kΩ`;
+            document.getElementById('cdisplay').textContent = `${cval.value} μF`;
+            document.getElementById('speedDisplay').textContent = `${waveSpeedControl.value}x`;
+        }
+
+        // Calculate frequency based on RC values
+        function calculateFrequency(r, c) {
+            const resistance = parseFloat(r) * 1000;
+            const capacitance = parseFloat(c) * 1e-6;
+            return 1 / (2 * Math.PI * Math.sqrt(6) * resistance * capacitance);
+        }
+
+        // Draw oscilloscope
+        function drawOscilloscope() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 0.5;
+
+            // Vertical lines
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            // Horizontal lines
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            const frequency = calculateFrequency(rval.value, cval.value);
+            const centerY = canvas.height / 2;
+            const speed = parseFloat(waveSpeedControl.value);
+            const samples = 1000;
+            const timeStep = 0.01;
+
+            // Draw point A wave
+            if (showPointA) {
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                for (let i = 0; i < samples; i++) {
+                    const x = (i / samples) * canvas.width;
+                    const t = time + i * timeStep;
+                    const y = centerY + 100 * Math.sin(2 * Math.PI * frequency * t * speed - Math.PI / 2);
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // Draw comparison wave
+            if (comparePoint) {
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                const phaseShiftRad = (currentPhase * Math.PI) / 180;
+
+                for (let i = 0; i < samples; i++) {
+                    const x = (i / samples) * canvas.width;
+                    const t = time + i * timeStep;
+                    const y = centerY + currentAmplitude * Math.sin(2 * Math.PI * frequency * t * speed - Math.PI / 2 - phaseShiftRad);
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            time += 0.1 * speed;
+
+            // Draw measurement information
+            ctx.fillStyle = '#0f0';
+            ctx.font = '16px Arial';
+
+            if (showPointA) {
+                ctx.fillStyle = '#0f0';
+                ctx.fillText('Point A: 5V (0°)', 10, 25);
+            }
+
+            if (comparePoint) {
+                ctx.fillStyle = '#00ffff';
+                let compareInfo = '';
+                if (comparePoint === 'a1') {
+                    compareInfo = `Point a1: ${(currentAmplitude / 100 * 5).toFixed(1)}V (60°)`;
+                } else if (comparePoint === 'a2') {
+                    compareInfo = `Point a2: ${(currentAmplitude / 100 * 5).toFixed(1)}V (120°)`;
+                } else if (comparePoint === 'a3') {
+                    compareInfo = `Point a3: ${(currentAmplitude / 100 * 5).toFixed(1)}V (180°)`;
+                }
+                ctx.fillText(compareInfo, 10, 50);
+            }
+
+            // Draw voltage scale
+            ctx.fillStyle = '#fff';
+            ctx.fillText('0V', canvas.width - 30, centerY + 5);
+            ctx.fillText('+5V', canvas.width - 35, 20);
+            ctx.fillText('-5V', canvas.width - 35, canvas.height - 10);
+
+            // Draw center line
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+        }
+
+        // Animation loop
+        function animate() {
+            if (isRunning) {
+                drawOscilloscope();
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // Event listeners for simulation controls
+        powStart.addEventListener('click', () => {
+            isRunning = !isRunning;
+            powStart.textContent = isRunning ? 'Stop Simulation' : 'Start Simulation';
+            if (isRunning) {
+                animate();
+            } else {
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        reset.addEventListener('click', () => {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            powStart.textContent = 'Start Simulation';
+            time = 0;
+            currentPhase = 0;
+            currentAmplitude = 100;
+            comparePoint = null;
+            showPointA = true;
+            rval.value = 10;
+            cval.value = 0.1;
+            waveSpeedControl.value = 1;
+            updateDisplays();
+            drawOscilloscope();
+        });
+
+        [rval, cval, waveSpeedControl].forEach(control => {
+            control.addEventListener('input', () => {
+                updateDisplays();
+                if (isRunning) {
+                    drawOscilloscope();
+                }
+            });
+        });
+
+        // Phase button event listeners
+        a1btn.addEventListener('click', () => {
+            currentPhase = 60;
+            currentAmplitude = 80;
+            comparePoint = 'a1';
+            if (!isRunning) {
+                drawOscilloscope();
+            }
+        });
+
+        a2btn.addEventListener('click', () => {
+            currentPhase = 120;
+            currentAmplitude = 60;
+            comparePoint = 'a2';
+            if (!isRunning) {
+                drawOscilloscope();
+            }
+        });
+
+        a3btn.addEventListener('click', () => {
+            currentPhase = 180;
+            currentAmplitude = 40;
+            comparePoint = 'a3';
+            if (!isRunning) {
+                drawOscilloscope();
+            }
+        });
+
+        // Initialize jsPlumb connections
+        document.addEventListener('DOMContentLoaded', function () {
+            const connectionPoints = document.querySelectorAll('.connection-point');
+
+            connectionPoints.forEach(point => {
+                instance.draggable(point, {
+                    containment: "parent"
+                });
+
+                instance.addEndpoint(point, {
+                    anchor: "Center",
+                    isSource: true,
+                    isTarget: true,
+                    endpoint: "Dot",
+                    paintStyle: { fill: "#2196F3" },
+                    maxConnections: -1
+                });
+
+                point.addEventListener('mouseover', () => {
+                    const connections = instance.getConnections({ source: point }).length +
+                        instance.getConnections({ target: point }).length;
+                    const label = document.createElement('div');
+                    label.className = 'connection-label';
+                    label.textContent = `Point ${point.getAttribute('data-point')} (${connections} connections)`;
+                    label.style.left = point.style.left;
+                    label.style.top = `calc(${point.style.top} - 15px)`;
+                    point.appendChild(label);
+                });
+
+                point.addEventListener('mouseout', () => {
+                    const label = point.querySelector('.connection-label');
+                    if (label) {
+                        label.remove();
+                    }
+                });
+            });
+
+            instance.bind("connection", function (info) {
+                if (!isConnectionAllowed(info.source, info.target)) {
+                    instance.deleteConnection(info.connection);
+                    return;
+                }
+
+                info.source.classList.add('selected');
+                info.target.classList.add('selected');
+
+                const sourceConnections = instance.getConnections({ source: info.source }).length;
+                const targetConnections = instance.getConnections({ target: info.target }).length;
+
+                if (sourceConnections > 1) {
+                    info.source.style.transform = `scale(${1 + sourceConnections * 0.1})`;
+                }
+                if (targetConnections > 1) {
+                    info.target.style.transform = `scale(${1 + targetConnections * 0.1})`;
+                }
+            });
+
+            instance.bind("connectionDetached", function (info) {
+                const sourceConnections = instance.getConnections({ source: info.source }).length;
+                const targetConnections = instance.getConnections({ target: info.target }).length;
+
+                if (sourceConnections === 0) {
+                    info.source.classList.remove('selected');
+                    info.source.style.transform = '';
+                } else {
+                    info.source.style.transform = `scale(${1 + sourceConnections * 0.1})`;
+                }
+
+                if (targetConnections === 0) {
+                    info.target.classList.remove('selected');
+                    info.target.style.transform = '';
+                } else {
+                    info.target.style.transform = `scale(${1 + targetConnections * 0.1})`;
+                }
+            });
+
+            instance.bind("beforeDrop", function (info) {
+                return isConnectionAllowed(info.source, info.target);
+            });
+        });
+
+        // Update jsPlumb on window resize
+        window.addEventListener('resize', function () {
+            instance.repaintEverything();
+        });
+
+        // Initialize
+        updateDisplays();
+        drawOscilloscope();
+
+        // Graph functions
+        function updateGraphs() {
+            const tableBody = document.querySelector('#valTable tbody');
+            const rows = tableBody.getElementsByTagName('tr');
+            const graphContainer = document.getElementById('graphContainer');
+
+            if (rows.length >= 5) {
+                graphContainer.style.display = 'block';
+
+                const data = Array.from(rows).map(row => ({
+                    r: parseFloat(row.cells[0].textContent),
+                    c: parseFloat(row.cells[1].textContent),
+                    frequency: parseFloat(row.cells[2].textContent)
+                }));
+
+                const frequencyData = [...data].sort((a, b) => a.r - b.r);
+                const capacitorData = [...data].sort((a, b) => a.c - b.c);
+
+                if (frequencyChart) {
+                    frequencyChart.destroy();
+                }
+
+                frequencyChart = new Chart(document.getElementById('frequencyGraph'), {
+                    type: 'line',
+                    data: {
+                        labels: frequencyData.map(d => d.r.toFixed(1)),
+                        datasets: [{
+                            label: 'Frequency vs Resistance',
+                            data: frequencyData.map(d => d.frequency),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Resistance (kΩ)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Frequency (Hz)'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                if (capacitorChart) {
+                    capacitorChart.destroy();
+                }
+
+                capacitorChart = new Chart(document.getElementById('capacitorGraph'), {
+                    type: 'line',
+                    data: {
+                        labels: capacitorData.map(d => d.c.toFixed(2)),
+                        datasets: [{
+                            label: 'Frequency vs Capacitance',
+                            data: capacitorData.map(d => d.frequency),
+                            borderColor: 'rgb(153, 102, 255)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Capacitance (μF)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Frequency (Hz)'
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                graphContainer.style.display = 'none';
+            }
+        }
+
+        function addReading() {
+            const tableBody = document.querySelector('#valTable tbody');
+            const frequency = calculateFrequency(rval.value, cval.value);
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${rval.value}</td>
+                <td>${cval.value}</td>
+                <td>${frequency.toFixed(2)}</td>
+                <td>5</td>
+                <td><button class="phase-button" onclick="deleteReading(this)">Delete</button></td>
+            `;
+
+            tableBody.appendChild(row);
+            updateGraphs();
+        }
+
+        function deleteReading(button) {
+            button.closest('tr').remove();
+            updateGraphs();
+        }
+
+        // Rating functionality
+        const stars = document.querySelectorAll('.star');
+        let selectedRating = 0;
+
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                selectedRating = parseInt(star.getAttribute('data-value'));
+                updateStars(selectedRating);
+            });
+        });
+
+        function updateStars(rating) {
+            stars.forEach(star => {
+                const value = parseInt(star.getAttribute('data-value'));
+                star.classList.toggle('selected', value <= rating);
+            });
+        }
+
+        function openModal() {
+            document.getElementById("rateModal").style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById("rateModal").style.display = "none";
+            selectedRating = 0;
+            updateStars(0);
+        }
+
+        function openBugModal() {
+            document.getElementById("bugModal").style.display = "block";
+        }
+
+        function closeBugModal() {
+            document.getElementById("bugModal").style.display = "none";
+            document.getElementById("bugForm").reset();
+            const img = document.getElementById("screenshotPreview");
+            img.src = "";
+            img.style.display = "none";
+        }
+
+        document.getElementById("screenshotCheckbox").addEventListener("change", function () {
+            const modal = document.getElementById("bugModal");
+            const img = document.getElementById("screenshotPreview");
+
+            if (this.checked) {
+                modal.style.display = "none";
+                setTimeout(() => {
+                    html2canvas(document.body).then(canvas => {
+                        img.src = canvas.toDataURL("image/png");
+                        img.style.display = "block";
+                        modal.style.display = "block";
+                    });
+                }, 300);
+            } else {
+                img.src = "";
+                img.style.display = "none";
+            }
+        });
+
+        function submitBug() {
+            const checkedIssues = Array.from(document.querySelectorAll('input[name="issue"]:checked')).map(cb => cb.value);
+            const description = document.getElementById("description").value;
+            const email = document.getElementById("email").value;
+            const includeScreenshot = document.getElementById("screenshotCheckbox").checked;
+            const screenshot = includeScreenshot ? document.getElementById("screenshotPreview").src : null;
+
+            if (checkedIssues.length === 0 && !description.trim()) {
+                alert("Please select at least one issue or describe the issue.");
+                return;
+            }
+
+            console.log({
+                issues: checkedIssues,
+                description,
+                email,
+                screenshot
+            });
+
+            alert("Bug submitted successfully!");
+            closeBugModal();
+        }
+
+        function submitRating() {
+            if (selectedRating > 0) {
+                alert(`You rated ${selectedRating} star(s)!`);
+                closeModal();
+            } else {
+                alert("Please select a rating before submitting.");
+            }
+        }
+
+        // Replace the previous draggable code with this sliding code
+        const instructionToggle = document.querySelector('.instruction-toggle');
+        let isSliding = false;
+        let startY;
+        let startTop;
+
+        instructionToggle.addEventListener('mousedown', slideStart);
+        document.addEventListener('mousemove', slide);
+        document.addEventListener('mouseup', slideEnd);
+
+        function slideStart(e) {
+            isSliding = true;
+            startY = e.clientY;
+            startTop = parseInt(window.getComputedStyle(instructionToggle).top);
+            instructionToggle.style.transition = 'none'; // Remove transition while sliding
+        }
+
+        function slide(e) {
+            if (isSliding) {
+                e.preventDefault();
+                const deltaY = e.clientY - startY;
+                const newTop = Math.max(70, Math.min(window.innerHeight - 50, startTop + deltaY));
+                instructionToggle.style.top = `${newTop}px`;
+            }
+        }
+
+        function slideEnd() {
+            isSliding = false;
+            instructionToggle.style.transition = 'transform 0.2s ease'; // Restore transition
+        }
+
+        // Make instruction panel slidable
+        const instructionPanel = document.getElementById('instructionPanel');
+        let isPanelSliding = false;
+        let panelStartY;
+        let scrollStartY;
+
+        instructionPanel.addEventListener('mousedown', function (e) {
+            if (instructionPanel.classList.contains('open')) {
+                isPanelSliding = true;
+                panelStartY = e.clientY;
+                scrollStartY = instructionPanel.scrollTop;
+                instructionPanel.style.cursor = 'grabbing';
+            }
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (isPanelSliding) {
+                e.preventDefault();
+                const deltaY = panelStartY - e.clientY;
+                instructionPanel.scrollTop = scrollStartY + deltaY;
+            }
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (isPanelSliding) {
+                isPanelSliding = false;
+                instructionPanel.style.cursor = 'ns-resize';
+            }
+        });
+
+        // Prevent text selection while sliding
+        instructionPanel.addEventListener('selectstart', function (e) {
+            if (isPanelSliding) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+
+</html>
